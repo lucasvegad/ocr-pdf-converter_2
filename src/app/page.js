@@ -480,7 +480,7 @@ export default function Page() {
           <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginTop: 8 }}>
             <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b", flexShrink: 0, marginTop: 4 }} />
             <span style={{ fontSize: 11, color: "#d4a056", lineHeight: 1.5 }}>
-              Tu key se usa en tu navegador para llamar a Google Cloud Vision. No se almacena en ningún servidor, pero es visible en las herramientas de desarrollador del navegador. <strong>Restringila</strong> en Cloud Console (paso 4 de la guía).
+              Tu key se usa en tu navegador para llamar a Google Cloud Vision. No se almacena en ningún servidor, pero es visible en las herramientas de desarrollador del navegador. <strong>Restringila</strong> en Cloud Console (paso 3 de la guía).
             </span>
           </div>
         </div>
