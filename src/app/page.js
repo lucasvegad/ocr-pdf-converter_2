@@ -385,7 +385,10 @@ export default function Page() {
         doc.addImage(pd.imgDataUrl, "JPEG", 0, 0, pd.origWidth, pd.origHeight);
         if (pd.ocrWords.length > 0) {
           const sx = pd.origWidth / pd.width, sy = pd.origHeight / pd.height;
-          doc.setTextColor(0, 0, 0);
+          // Use near-transparent white text instead of rendering mode 3
+          // which jsPDF doesn't implement correctly
+          doc.setTextColor(255, 255, 255);
+          doc.setGState(new doc.GState({ opacity: 0.01 }));
           for (const w of pd.ocrWords) {
             if (!w.text.trim() || !w.vertices || w.vertices.length < 4) continue;
             const x = (w.vertices[0]?.x || 0) * sx;
@@ -394,10 +397,11 @@ export default function Page() {
             const wordHeight = Math.abs(y2 - y);
             if (wordHeight < 1) continue;
             doc.setFontSize(Math.max(wordHeight * 0.85, 4));
-            doc.internal.write("3 Tr");
             doc.text(w.text, x, y + wordHeight * 0.78);
           }
-          doc.internal.write("0 Tr");
+          // Reset opacity for next page
+          doc.setGState(new doc.GState({ opacity: 1 }));
+          doc.setTextColor(0, 0, 0);
         }
       }
 
