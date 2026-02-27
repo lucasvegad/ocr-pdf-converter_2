@@ -371,9 +371,7 @@ export default function Page() {
 
       setStatus(STATUS.GENERATING_PDF);
       addLog("Generando PDF searchable con pdf-lib...");
-      const { PDFDocument, StandardFonts, pushGraphicsState, popGraphicsState, concatTransformationMatrix,
-              beginText, endText, setFontAndSize, setTextRenderingMode, setTextMatrix, showText,
-              TextRenderingMode, drawObject, PDFName } = window.PDFLib;
+      const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
 
       const pdfDoc = await PDFDocument.create();
       const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -389,18 +387,18 @@ export default function Page() {
         // Create page with original dimensions
         const page = pdfDoc.addPage([pd.origWidth, pd.origHeight]);
 
-        // Draw background image
+        // Draw background image filling the entire page
         page.drawImage(img, {
           x: 0, y: 0,
           width: pd.origWidth,
           height: pd.origHeight,
         });
 
-        // Add invisible OCR text layer using render mode 3 (invisible)
+        // Add OCR text layer using drawText with near-zero opacity
+        // drawText properly registers fonts in page Resources (unlike pushOperators)
         if (pd.ocrWords.length > 0) {
           const sx = pd.origWidth / pd.width;
           const sy = pd.origHeight / pd.height;
-          const operators = [];
 
           for (const w of pd.ocrWords) {
             if (!w.text.trim() || !w.vertices || w.vertices.length < 4) continue;
@@ -411,38 +409,23 @@ export default function Page() {
             const wordHeight = Math.abs(yBot - yTop);
             if (wordHeight < 1) continue;
 
-            // PDF coordinate system: y=0 is bottom, so flip
+            // PDF y-axis: 0 is bottom, so flip
             const pdfY = pd.origHeight - yBot;
             const fontSize = Math.max(wordHeight * 0.85, 4);
 
-            // Encode text - handle special characters
-            let safeText;
             try {
-              safeText = helvetica.encodeText(w.text);
+              page.drawText(w.text, {
+                x: x,
+                y: pdfY,
+                size: fontSize,
+                font: helvetica,
+                color: rgb(0, 0, 0),
+                opacity: 0.01, // Nearly invisible but text IS written to content stream
+              });
             } catch {
-              // Skip characters that can't be encoded in Helvetica
+              // Skip characters that can't be encoded in Helvetica (WinAnsi)
               continue;
             }
-
-            operators.push(
-              beginText(),
-              setFontAndSize(PDFName.of("F1"), fontSize),
-              setTextRenderingMode(TextRenderingMode.Invisible),
-              setTextMatrix(1, 0, 0, 1, x, pdfY),
-              showText(safeText),
-              endText(),
-            );
-          }
-
-          if (operators.length > 0) {
-            // Register the font in page resources
-            page.node.set(
-              PDFName.of("Resources"),
-              pdfDoc.context.obj({
-                Font: { F1: helvetica.ref },
-              })
-            );
-            page.pushOperators(...operators);
           }
         }
       }
