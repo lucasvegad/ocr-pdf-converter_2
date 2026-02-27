@@ -42,6 +42,9 @@ async function callVisionOCR(base64Image, apiKey) {
     if (res.status === 400 && msg.includes("API key not valid")) {
       throw new Error("INVALID_KEY");
     }
+    if (res.status === 403 && msg.includes("restricted")) {
+      throw new Error("KEY_RESTRICTED");
+    }
     throw new Error(`Vision API error ${res.status}: ${msg}`);
   }
   const data = await res.json();
@@ -80,38 +83,48 @@ function ApiGuide({ onClose }) {
   const steps = [
     {
       n: "1",
-      title: "Ir a Google AI Studio",
+      title: "Ir a Google Cloud Console",
+      warn: false,
       desc: (
         <span>
-          Andá a{" "}
-          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", textDecoration: "underline" }}>
-            aistudio.google.com/app/apikey
+          Ingresá a{" "}
+          <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", textDecoration: "underline" }}>
+            console.cloud.google.com
           </a>{" "}
-          e iniciá sesión con tu cuenta de Google.
+          e iniciá sesión. Si es tu primera vez, aceptá los términos de servicio y creá un <strong style={{ color: "#e8e6e3" }}>Proyecto Nuevo</strong> (ej: "OCR Legal").
         </span>
       ),
     },
     {
       n: "2",
-      title: "Crear API Key",
-      desc: "Hacé click en \"Crear clave de API\" (o \"Create API key\"). Poné un nombre (ej: \"OCR Tool\") y seleccioná \"Crear proyecto nuevo\" o usá uno existente.",
+      title: "Habilitar Cloud Vision API",
+      warn: false,
+      desc: (
+        <span>
+          En el buscador superior de la consola, escribí <strong style={{ color: "#e8e6e3" }}>Cloud Vision API</strong>, seleccionala en los resultados y hacé click en el botón azul <strong style={{ color: "#e8e6e3" }}>Habilitar</strong>. Este paso es obligatorio.
+        </span>
+      ),
     },
     {
       n: "3",
-      title: "Habilitar Cloud Vision API",
+      title: "Crear y Restringir la API Key (Crítico)",
+      warn: true,
       desc: (
         <span>
-          Andá a{" "}
-          <a href="https://console.cloud.google.com/apis/library/vision.googleapis.com" target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", textDecoration: "underline" }}>
-            Cloud Console → Vision API
-          </a>{" "}
-          y hacé click en <strong>Habilitar</strong> para el mismo proyecto donde creaste la key. Este paso es obligatorio.
+          Andá al menú lateral izquierdo:{" "}
+          <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" style={{ color: "#60a5fa", textDecoration: "underline" }}>
+            APIs y servicios → Credenciales
+          </a>
+          . Hacé click en <strong style={{ color: "#e8e6e3" }}>Crear credenciales</strong> → <strong style={{ color: "#e8e6e3" }}>Clave de API</strong>.
+          <br /><br />
+          <span style={{ color: "#f59e0b" }}>⚠️ Regla de seguridad:</span> Hacé click en la clave recién creada, bajá hasta "Restricciones de API", seleccioná <strong style={{ color: "#e8e6e3" }}>Restringir clave</strong> y marcá únicamente <strong style={{ color: "#e8e6e3" }}>Cloud Vision API</strong>. Esto evita que te roben la cuota o te generen gastos si tu clave queda expuesta.
         </span>
       ),
     },
     {
       n: "4",
       title: "Pegar la key acá",
+      warn: false,
       desc: "Copiá la API key (empieza con AIza...) y pegala en el campo de arriba. Listo — ya podés convertir PDFs.",
     },
   ];
@@ -126,9 +139,9 @@ function ApiGuide({ onClose }) {
       </div>
       {steps.map((s) => (
         <div key={s.n} style={{ display: "flex", gap: 14, marginBottom: 16 }}>
-          <div style={{ width: 28, height: 28, minWidth: 28, background: "rgba(59,130,246,0.15)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: "#60a5fa", marginTop: 2 }}>{s.n}</div>
+          <div style={{ width: 28, height: 28, minWidth: 28, background: s.warn ? "rgba(245,158,11,0.2)" : "rgba(59,130,246,0.15)", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700, color: s.warn ? "#f59e0b" : "#60a5fa", marginTop: 2 }}>{s.n}</div>
           <div>
-            <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: "#e8e6e3" }}>{s.title}</p>
+            <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: s.warn ? "#f59e0b" : "#e8e6e3" }}>{s.title}</p>
             <p style={{ margin: 0, fontSize: 12, color: "#8b949e", lineHeight: 1.7 }}>{s.desc}</p>
           </div>
         </div>
@@ -138,6 +151,48 @@ function ApiGuide({ onClose }) {
           💡 <strong>Gratis:</strong> Google Cloud Vision ofrece 1,000 llamadas/mes sin costo. Un PDF de 30 páginas con 15 escaneadas usa solo 15 llamadas → alcanza para ~66 documentos por mes.
         </p>
       </div>
+    </div>
+  );
+}
+
+// ─── Security Warning Component ───
+function SecurityNotice() {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div style={{ background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.15)", borderRadius: 10, padding: "14px 16px", marginTop: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <p style={{ margin: 0, fontSize: 12, color: "#f59e0b", fontWeight: 600 }}>
+          🔐 Nota importante sobre tu API Key
+        </p>
+        <button onClick={() => setExpanded(!expanded)} style={{ background: "transparent", border: "none", color: "#f59e0b", fontSize: 11, cursor: "pointer", fontFamily: "var(--font-display)", textDecoration: "underline" }}>
+          {expanded ? "Cerrar" : "Leer más"}
+        </button>
+      </div>
+      {expanded && (
+        <div style={{ marginTop: 10, fontSize: 12, color: "#d4a056", lineHeight: 1.8 }}>
+          <p style={{ margin: "0 0 8px" }}>
+            Esta herramienta hace las llamadas a Google Cloud Vision <strong>directamente desde tu navegador</strong>. Esto significa que tu API key viaja en cada request y es visible en las herramientas de desarrollador del navegador (pestaña Network).
+          </p>
+          <p style={{ margin: "0 0 8px" }}>
+            <strong>Para protegerte:</strong>
+          </p>
+          <p style={{ margin: "0 0 4px", paddingLeft: 12 }}>
+            → <strong>Restringí tu key</strong> en Google Cloud Console para que solo funcione con Cloud Vision API.
+          </p>
+          <p style={{ margin: "0 0 4px", paddingLeft: 12 }}>
+            → <strong>Agregá restricción por HTTP referrer</strong> al dominio de esta herramienta para que no funcione desde otros sitios.
+          </p>
+          <p style={{ margin: "0 0 4px", paddingLeft: 12 }}>
+            → <strong>No compartas pantalla</strong> mientras usás la herramienta sin ocultar las herramientas de desarrollador.
+          </p>
+          <p style={{ margin: "0 0 4px", paddingLeft: 12 }}>
+            → <strong>Monitoreá tu consumo</strong> en Google Cloud Console → Facturación para detectar uso no autorizado.
+          </p>
+          <p style={{ margin: "8px 0 0", fontSize: 11, color: "#a07830" }}>
+            Sin estas restricciones, si alguien obtiene tu key, podría generar cargos en tu cuenta de Google Cloud.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -246,7 +301,6 @@ export default function Page() {
       const pdf = await window.pdfjsLib.getDocument({ data: arrayBuf }).promise;
       const totalPages = pdf.numPages;
       addLog(`PDF: ${totalPages} páginas`);
-
       if (totalPages > MAX_PAGES_WARNING) {
         addLog(`⚠ PDF con ${totalPages} páginas — el proceso puede tardar varios minutos`);
       }
@@ -296,10 +350,13 @@ export default function Page() {
             addLog(`✓ Pág ${pageNum}: ${result.words.length} palabras`);
           } catch (apiErr) {
             if (apiErr.message === "VISION_NOT_ENABLED") {
-              throw new Error("Cloud Vision API no está habilitada en tu proyecto. Hacé click en \"¿Cómo la consigo?\" arriba y seguí el paso 3.");
+              throw new Error("Cloud Vision API no está habilitada en tu proyecto. Abrí la guía (¿Cómo la consigo?) y seguí el paso 2.");
             }
             if (apiErr.message === "INVALID_KEY") {
-              throw new Error("La API key no es válida. Verificá que la hayas copiado completa desde Google AI Studio.");
+              throw new Error("La API key no es válida. Verificá que la hayas copiado completa desde Google Cloud Console.");
+            }
+            if (apiErr.message === "KEY_RESTRICTED") {
+              throw new Error("Tu API key tiene restricciones que impiden usar Cloud Vision API, o la restricción por HTTP referrer no incluye este dominio. Revisá las restricciones en Cloud Console → Credenciales.");
             }
             addLog(`⚠ Pág ${pageNum}: ${apiErr.message}`);
           }
@@ -350,11 +407,14 @@ export default function Page() {
       setOutputFilename(`${file.name.replace(/\.pdf$/i, "")}_OCR.pdf`);
       setStatus(STATUS.DONE);
       stopTimer();
-      addLog(`✓ Listo: ${(blob.size / 1024 / 1024).toFixed(2)} MB en ${formatTime(elapsedTime)}`);
+      addLog(`✓ Listo: ${(blob.size / 1024 / 1024).toFixed(2)} MB`);
     } catch (err) {
       if (!cancelRef.current) {
         setErrorMsg(err.message || "Error desconocido");
-        setErrorType(err.message.includes("Vision") || err.message.includes("API key") ? "api_config" : "generic");
+        setErrorType(
+          err.message.includes("Vision") || err.message.includes("API key") || err.message.includes("restricciones")
+            ? "api_config" : "generic"
+        );
         setStatus(STATUS.ERROR);
         addLog(`❌ ${err.message}`);
         stopTimer();
@@ -417,9 +477,11 @@ export default function Page() {
               style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: "#6b7280", cursor: "pointer", fontSize: 16 }}
             >{showApiKey ? "🙈" : "👁"}</button>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8 }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", flexShrink: 0 }} />
-            <span style={{ fontSize: 11, color: "#4ade80" }}>Tu key se usa solo en tu navegador. No se envía ni almacena en ningún servidor.</span>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 6, marginTop: 8 }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#f59e0b", flexShrink: 0, marginTop: 4 }} />
+            <span style={{ fontSize: 11, color: "#d4a056", lineHeight: 1.5 }}>
+              Tu key se usa en tu navegador para llamar a Google Cloud Vision. No se almacena en ningún servidor, pero es visible en las herramientas de desarrollador del navegador. <strong>Restringila</strong> en Cloud Console (paso 4 de la guía).
+            </span>
           </div>
         </div>
 
@@ -582,15 +644,12 @@ export default function Page() {
           </div>
         </div>
 
+        <SecurityNotice />
         <Limitations />
       </div>
 
       {/* Footer */}
       <div style={{ width: "100%", maxWidth: 640, marginTop: 28, textAlign: "center" }}>
-        <div style={{ fontSize: 11, color: "#2a2d37", lineHeight: 1.8, marginBottom: 20 }}>
-          🔒 Tu API key y archivos nunca se almacenan en ningún servidor. Las imágenes van directamente<br />
-          desde tu navegador a Google Cloud Vision. El PDF se genera localmente.
-        </div>
         <div style={{ borderTop: "1px solid #1a1d27", paddingTop: 20 }}>
           <p style={{ fontSize: 13, color: "#6b7280", margin: "0 0 6px" }}>
             Hecho por{" "}
