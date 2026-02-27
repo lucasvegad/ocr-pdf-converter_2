@@ -2,7 +2,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 
 const PDFJS_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174";
-const JSPDF_CDN = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
+const PDFLIB_CDN = "https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js";
 const VISION_API_URL = "https://vision.googleapis.com/v1/images:annotate";
 
 function loadScript(src) {
@@ -290,8 +290,8 @@ export default function Page() {
       addLog("Cargando pdf.js...");
       await loadScript(`${PDFJS_CDN}/pdf.min.js`);
       window.pdfjsLib.GlobalWorkerOptions.workerSrc = `${PDFJS_CDN}/pdf.worker.min.js`;
-      addLog("Cargando jsPDF...");
-      await loadScript(JSPDF_CDN);
+      addLog("Cargando pdf-lib...");
+      await loadScript(PDFLIB_CDN);
       addLog("✓ Librerías listas");
       if (cancelRef.current) return;
 
@@ -370,42 +370,85 @@ export default function Page() {
       if (cancelRef.current) return;
 
       setStatus(STATUS.GENERATING_PDF);
-      addLog("Generando PDF searchable...");
-      const { jsPDF } = window.jspdf;
-      const fp = pageDataList[0];
-      const doc = new jsPDF({
-        orientation: fp.origWidth > fp.origHeight ? "landscape" : "portrait",
-        unit: "px", format: [fp.origWidth, fp.origHeight], compress: true,
-      });
+      addLog("Generando PDF searchable con pdf-lib...");
+      const { PDFDocument, StandardFonts, pushGraphicsState, popGraphicsState, concatTransformationMatrix,
+              beginText, endText, setFontAndSize, setTextRenderingMode, setTextMatrix, showText,
+              TextRenderingMode, drawObject, PDFName } = window.PDFLib;
+
+      const pdfDoc = await PDFDocument.create();
+      const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
 
       for (let i = 0; i < pageDataList.length; i++) {
         if (cancelRef.current) return;
         const pd = pageDataList[i];
-        if (i > 0) doc.addPage([pd.origWidth, pd.origHeight], pd.origWidth > pd.origHeight ? "landscape" : "portrait");
-        doc.addImage(pd.imgDataUrl, "JPEG", 0, 0, pd.origWidth, pd.origHeight);
+
+        // Embed the page image
+        const imgBytes = await fetch(pd.imgDataUrl).then(r => r.arrayBuffer());
+        const img = await pdfDoc.embedJpg(imgBytes);
+
+        // Create page with original dimensions
+        const page = pdfDoc.addPage([pd.origWidth, pd.origHeight]);
+
+        // Draw background image
+        page.drawImage(img, {
+          x: 0, y: 0,
+          width: pd.origWidth,
+          height: pd.origHeight,
+        });
+
+        // Add invisible OCR text layer using render mode 3 (invisible)
         if (pd.ocrWords.length > 0) {
-          const sx = pd.origWidth / pd.width, sy = pd.origHeight / pd.height;
-          // Use near-transparent white text instead of rendering mode 3
-          // which jsPDF doesn't implement correctly
-          doc.setTextColor(255, 255, 255);
-          doc.setGState(new doc.GState({ opacity: 0.01 }));
+          const sx = pd.origWidth / pd.width;
+          const sy = pd.origHeight / pd.height;
+          const operators = [];
+
           for (const w of pd.ocrWords) {
             if (!w.text.trim() || !w.vertices || w.vertices.length < 4) continue;
+
             const x = (w.vertices[0]?.x || 0) * sx;
-            const y = (w.vertices[0]?.y || 0) * sy;
-            const y2 = (w.vertices[3]?.y || 0) * sy;
-            const wordHeight = Math.abs(y2 - y);
+            const yTop = (w.vertices[0]?.y || 0) * sy;
+            const yBot = (w.vertices[3]?.y || 0) * sy;
+            const wordHeight = Math.abs(yBot - yTop);
             if (wordHeight < 1) continue;
-            doc.setFontSize(Math.max(wordHeight * 0.85, 4));
-            doc.text(w.text, x, y + wordHeight * 0.78);
+
+            // PDF coordinate system: y=0 is bottom, so flip
+            const pdfY = pd.origHeight - yBot;
+            const fontSize = Math.max(wordHeight * 0.85, 4);
+
+            // Encode text - handle special characters
+            let safeText;
+            try {
+              safeText = helvetica.encodeText(w.text);
+            } catch {
+              // Skip characters that can't be encoded in Helvetica
+              continue;
+            }
+
+            operators.push(
+              beginText(),
+              setFontAndSize(PDFName.of("F1"), fontSize),
+              setTextRenderingMode(TextRenderingMode.Invisible),
+              setTextMatrix(1, 0, 0, 1, x, pdfY),
+              showText(safeText),
+              endText(),
+            );
           }
-          // Reset opacity for next page
-          doc.setGState(new doc.GState({ opacity: 1 }));
-          doc.setTextColor(0, 0, 0);
+
+          if (operators.length > 0) {
+            // Register the font in page resources
+            page.node.set(
+              PDFName.of("Resources"),
+              pdfDoc.context.obj({
+                Font: { F1: helvetica.ref },
+              })
+            );
+            page.pushOperators(...operators);
+          }
         }
       }
 
-      const blob = doc.output("blob");
+      const pdfBytes = await pdfDoc.save();
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
       setOutputUrl(url);
       setOutputFilename(`${file.name.replace(/\.pdf$/i, "")}_OCR.pdf`);
