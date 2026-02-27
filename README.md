@@ -2,8 +2,6 @@
 
 Herramienta web gratuita que convierte PDFs escaneados en documentos searchable (con texto seleccionable y buscable) usando Google Cloud Vision OCR.
 
-**[→ Probar la herramienta en vivo](https://ocr-pdf-converter.vercel.app)**
-
 ---
 
 ## ¿Qué problema resuelve?
@@ -19,30 +17,38 @@ Si trabajás con documentos legales, administrativos o judiciales escaneados, sa
 
 ## Requisitos
 
-Necesitás una API Key gratuita de Google Cloud con Cloud Vision API habilitada. La herramienta incluye una guía paso a paso para obtenerla.
+Necesitás una API Key gratuita de Google Cloud con Cloud Vision API habilitada.
 
 ### Obtener tu API Key (5 minutos)
 
-1. Andá a [console.cloud.google.com](https://console.cloud.google.com) y creá un proyecto (o usá uno existente)
-2. En el menú lateral → **APIs y Servicios** → **Biblioteca** → buscá "Cloud Vision API" → **Habilitar**
-3. Andá a **APIs y Servicios** → **Credenciales** → **Crear credenciales** → **Clave de API**
-4. Copiá la clave y pegala en la herramienta
+1. Andá a [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) e iniciá sesión con tu cuenta de Google
+2. Hacé click en **"Crear clave de API"** (o "Create API key"), poné un nombre y creá un proyecto nuevo
+3. Andá a [Cloud Console → Vision API](https://console.cloud.google.com/apis/library/vision.googleapis.com) y hacé click en **Habilitar** para el mismo proyecto
+4. Copiá la API key (empieza con `AIza...`) y pegala en la herramienta
 
-> 💡 Google Cloud Vision ofrece **1,000 requests gratis por mes**. Un PDF de 30 páginas con 15 escaneadas usa solo 15 requests. Te alcanza para ~66 PDFs/mes sin costo.
+> 💡 **Gratis:** Google Cloud Vision ofrece 1,000 llamadas/mes sin costo. Un PDF de 30 páginas con 15 escaneadas usa solo 15 llamadas. Te alcanza para ~66 PDFs/mes sin pagar nada.
+
+## Limitaciones
+
+- **Tamaño recomendado:** Hasta 50 páginas. PDFs más largos funcionan pero pueden tardar varios minutos.
+- **Cuota:** 1,000 llamadas gratis/mes. Cada página escaneada = 1 llamada. Las páginas con texto existente NO consumen cuota.
+- **Precisión:** Depende de la calidad del escaneo. Documentos borrosos, con manchas o escritos a mano pueden tener errores.
+- **Texto superpuesto:** Funcional para búsqueda y selección, pero no tiene posicionamiento pixel-perfect.
+- **Conexión:** Requiere internet para las llamadas a Google Cloud Vision. El PDF final se genera localmente.
 
 ## Privacidad y seguridad
 
 - **Tu API key nunca se almacena** en ningún servidor. Se usa únicamente en tu navegador durante la sesión.
-- **Tus archivos no se suben a ningún servidor propio.** Las imágenes de las páginas escaneadas se envían directamente desde tu navegador a Google Cloud Vision para el OCR.
+- **Tus archivos no se suben a ningún servidor propio.** Las imágenes se envían directamente desde tu navegador a Google Cloud Vision.
 - **El PDF final se genera localmente** en tu navegador.
-- No hay backend, base de datos, ni tracking de ningún tipo.
+- No hay backend, base de datos, ni tracking.
 
 ## Stack técnico
 
 - **Next.js 14** — framework web
 - **pdf.js** — lectura y renderizado de PDFs
 - **Google Cloud Vision API** — reconocimiento óptico de caracteres
-- **jsPDF** — generación del PDF searchable con capa de texto invisible
+- **jsPDF** — generación del PDF con capa de texto invisible
 - **Vercel** — hosting
 
 ## Desarrollo local
@@ -61,22 +67,16 @@ Abrí `http://localhost:3000` en tu navegador.
 1. Hacé fork de este repositorio
 2. Andá a [vercel.com/new](https://vercel.com/new)
 3. Importá el repo desde GitHub
-4. Click en Deploy (Vercel detecta Next.js automáticamente)
+4. Click en Deploy
 
 No se necesitan variables de entorno. La API key la ingresa cada usuario en el navegador.
 
-## Limitaciones
-
-- La precisión del OCR depende de la calidad del escaneo original
-- PDFs con más de 50 páginas escaneadas pueden tardar varios minutos
-- El texto invisible superpuesto es funcional para búsqueda pero no tiene posicionamiento pixel-perfect
-- Requiere conexión a internet (para las llamadas a Google Cloud Vision)
-
 ## Autor
 
-**Lucas Aguilar** — Abogado Tech · Montecarlo, Misiones 🇦🇷
+**Lucas Vega** — Abogado Tech · Montecarlo, Misiones 🇦🇷
 
-- [LinkedIn](https://www.linkedin.com/in/lucas-aguilar-legaltech/)
+- [Portfolio](https://www.lucasvega.com/)
+- [LinkedIn](https://www.linkedin.com/in/abogadolucasvega/)
 
 Herramienta gratuita para la comunidad legal.
 
